@@ -19,13 +19,13 @@
     button, input {
       font-size: 18px;
       padding: 10px 20px;
-      margin: 10px;
+      margin: 5px;
       cursor: pointer;
     }
     #menu button {
       width: 250px;
     }
-    #exercise {
+    #exercise, #studyView {
       display: none;
       background-color: #1e1e1e;
       padding: 30px;
@@ -33,7 +33,19 @@
       border-radius: 10px;
       text-align: center;
       margin-top: 20px;
-      max-width: 500px;
+      max-width: 600px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #444;
+      padding: 8px;
+    }
+    th {
+      background-color: #2a2a2a;
     }
     .correct { color: lightgreen; }
     .incorrect { color: #ff5555; }
@@ -48,10 +60,17 @@
 
   <h1>Nihongo JIM – Allenamento</h1>
   <div id="menu">
-    <p>Scegli il tipo di allenamento:</p>
-    <button onclick="startGame('Hiragana')">🟢 Hiragana</button><br>
-    <button onclick="startGame('Katakana')">🔴 Katakana</button><br>
+    <p>Scegli il tipo di allenamento o di studio:</p>
+
+    <button onclick="startGame('Hiragana')">🟢 Hiragana</button>
+    <button onclick="viewStudy('Hiragana')">📚 Studio</button><br>
+
+    <button onclick="startGame('Katakana')">🔴 Katakana</button>
+    <button onclick="viewStudy('Katakana')">📚 Studio</button><br>
+
     <button onclick="startGame('N5')">🥷 Vocabolario N5</button>
+    <button onclick="viewStudy('N5')">📚 Studio</button>
+
     <p id="error"></p>
   </div>
 
@@ -61,6 +80,22 @@
     <input type="text" id="userInput" placeholder="Scrivi la lettura">
     <button onclick="checkAnswer()">Verifica</button>
     <p id="feedback"></p>
+    <button onclick="goBack()">🔙 Torna al menu</button>
+  </div>
+
+  <div id="studyView">
+    <h2 id="studyTitle">📚 Studio</h2>
+    <table id="studyTable">
+      <thead>
+        <tr>
+          <th>Kanji / Kana</th>
+          <th>Hiragana</th>
+          <th>Romaji</th>
+          <th>Significato</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
     <button onclick="goBack()">🔙 Torna al menu</button>
   </div>
 
@@ -74,14 +109,16 @@
     let repeatCount = 0;
     let blindCount = 0;
 
+    function getActualSheetName(sheetName) {
+      return sheetName === "N5" ? "n5_section" : sheetName;
+    }
+
     function startGame(sheetName) {
       currentModule = sheetName;
       kanaMode = (sheetName === "Hiragana" || sheetName === "Katakana");
       const errorBox = document.getElementById('error');
       errorBox.innerText = "";
-
-      // 👇 Cambia il nome solo per la tab N5
-      const actualSheetName = (sheetName === "N5") ? "n5_section" : sheetName;
+      const actualSheetName = getActualSheetName(sheetName);
 
       fetch(sheetBase + actualSheetName)
         .then(res => {
@@ -97,10 +134,52 @@
             meaning: row.significato || ""
           }));
           document.getElementById('menu').style.display = 'none';
+          document.getElementById('studyView').style.display = 'none';
           document.getElementById('exercise').style.display = 'block';
           document.getElementById('moduleTitle').innerText = `Modulo: ${sheetName}`;
           document.getElementById('userInput').placeholder = kanaMode ? "Scrivi in romaji" : "Scrivi in hiragana";
           getRandomWord();
+        })
+        .catch(err => {
+          console.error(err);
+          errorBox.innerText = "❌ Errore nel caricamento del modulo '" + sheetName + "'.";
+        });
+    }
+
+    function viewStudy(sheetName) {
+      const errorBox = document.getElementById('error');
+      errorBox.innerText = "";
+      const actualSheetName = getActualSheetName(sheetName);
+
+      fetch(sheetBase + actualSheetName)
+        .then(res => {
+          if (!res.ok) throw new Error("Modulo non trovato: " + sheetName);
+          return res.json();
+        })
+        .then(data => {
+          const rows = data.map(row => ({
+            kanji: row.Kanji || row.Kana || "",
+            kana: row.Kana || "",
+            hiragana: row.hiragana || "",
+            romaji: row.romaji || "",
+            meaning: row.significato || ""
+          }));
+          const tableBody = document.querySelector("#studyTable tbody");
+          tableBody.innerHTML = "";
+          rows.forEach(r => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+              <td>${r.kanji}</td>
+              <td>${r.hiragana || "-"}</td>
+              <td>${r.romaji || "-"}</td>
+              <td>${r.meaning || "-"}</td>
+            `;
+            tableBody.appendChild(tr);
+          });
+          document.getElementById('menu').style.display = 'none';
+          document.getElementById('exercise').style.display = 'none';
+          document.getElementById('studyView').style.display = 'block';
+          document.getElementById('studyTitle').innerText = `📚 Studio: ${sheetName}`;
         })
         .catch(err => {
           console.error(err);
@@ -195,6 +274,7 @@
 
     function goBack() {
       document.getElementById('exercise').style.display = 'none';
+      document.getElementById('studyView').style.display = 'none';
       document.getElementById('menu').style.display = 'block';
     }
 
