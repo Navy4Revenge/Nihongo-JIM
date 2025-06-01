@@ -1,70 +1,168 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>Allenamento Giapponese</title>
+  <title>Nihongo JIM – Allenamento</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
-      background-color: #f4f4f4;
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #121212;
+      color: #f5f5f5;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1, h2 {
       text-align: center;
-      padding: 50px;
+    }
+    button, input {
+      font-size: 18px;
+      padding: 10px 20px;
+      margin: 10px;
+      cursor: pointer;
     }
     #menu button {
-      margin: 10px;
-      padding: 15px 25px;
-      font-size: 16px;
+      width: 250px;
     }
     #exercise {
       display: none;
-      margin-top: 30px;
+      background-color: #1e1e1e;
+      padding: 30px;
+      border: 1px solid #444;
+      border-radius: 10px;
+      text-align: center;
+      margin-top: 20px;
+      max-width: 500px;
     }
+    .correct { color: lightgreen; }
+    .incorrect { color: #ff5555; }
+    .answer { color: #ccc; font-style: italic; margin-top: 10px; }
   </style>
 </head>
 <body>
 
-  <h1>Allenamento Giapponese</h1>
+  <h1>Nihongo JIM – Allenamento</h1>
   <div id="menu">
-    <button onclick="startGame('Hiragana')">🟢 Hiragana</button>
-    <button onclick="startGame('Katakana')">🔴 Katakana</button>
+    <p>Scegli il tipo di allenamento:</p>
+    <button onclick="startGame('Hiragana')">🟢 Hiragana</button><br>
+    <button onclick="startGame('Katakana')">🔴 Katakana</button><br>
     <button onclick="startGame('N5')">🥷 Vocabolario N5</button>
   </div>
 
   <div id="exercise">
     <h2 id="moduleTitle"></h2>
-    <div id="content"></div>
+    <div id="currentWord" style="font-size: 40px; margin: 20px 0;"></div>
+    <input type="text" id="userInput" placeholder="Scrivi la lettura">
+    <button onclick="checkAnswer()">Verifica</button>
+    <p id="feedback"></p>
     <button onclick="goBack()">🔙 Torna al menu</button>
   </div>
 
   <script>
-    const sheetId = '1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA';
-    const modules = {
-      'Hiragana': '0', // Sostituisci con il gid corretto
-      'Katakana': '123456789', // Sostituisci con il gid corretto
-      'N5': '987654321' // Sostituisci con il gid corretto
-    };
+    const sheetBase = 'https://opensheet.elk.sh/1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA/';
+    let vocab = [];
+    let current = null;
+    let stage = "normal";
+    let repeatCount = 0;
+    let blindCount = 0;
 
-    function startGame(moduleName) {
-      const gid = modules[moduleName];
-      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
-      fetch(url)
-        .then(response => response.text())
+    function startGame(sheetName) {
+      fetch(sheetBase + sheetName)
+        .then(res => res.json())
         .then(data => {
+          vocab = data.map(row => ({
+            kanji: row.Kanji || row.Kana,
+            reading: row.hiragana || row.romaji,
+            meaning: row.significato || ""
+          }));
           document.getElementById('menu').style.display = 'none';
           document.getElementById('exercise').style.display = 'block';
-          document.getElementById('moduleTitle').innerText = `Modulo: ${moduleName}`;
-          document.getElementById('content').innerText = data;
-          // Qui puoi aggiungere la logica per gestire i dati CSV e avviare l'esercizio
-        })
-        .catch(error => {
-          console.error('Errore nel caricamento dei dati:', error);
+          document.getElementById('moduleTitle').innerText = `Modulo: ${sheetName}`;
+          getRandomWord();
         });
+    }
+
+    function getRandomWord() {
+      stage = "normal";
+      repeatCount = 0;
+      blindCount = 0;
+      current = vocab[Math.floor(Math.random() * vocab.length)];
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const display = document.getElementById('currentWord');
+      document.getElementById('userInput').value = '';
+      document.getElementById('feedback').innerText = '';
+
+      if (stage === "normal") {
+        display.innerText = current.kanji;
+      } else if (stage === "correction") {
+        display.innerHTML = `${current.kanji}<br><span class='answer'>${current.reading} – ${current.meaning}</span>`;
+      } else if (stage === "blind") {
+        display.innerText = current.kanji;
+      }
+    }
+
+    function checkAnswer() {
+      const inputField = document.getElementById('userInput');
+      const input = inputField.value.trim();
+      const feedback = document.getElementById('feedback');
+      inputField.value = '';
+
+      if (!current) return;
+
+      if (stage === "normal") {
+        if (input === current.reading) {
+          feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
+          setTimeout(getRandomWord, 1000);
+        } else {
+          stage = "correction";
+          repeatCount = 0;
+          feedback.innerHTML = "❌ Sbagliato!";
+          updateDisplay();
+        }
+
+      } else if (stage === "correction") {
+        if (input === current.reading) {
+          repeatCount++;
+          const incitazioni = ["もう一回！", "いいぞ！", "あと一回！"];
+          feedback.innerHTML = `✍️ ${incitazioni[repeatCount - 1]}`;
+          if (repeatCount >= 3) {
+            stage = "blind";
+            updateDisplay();
+          }
+        } else {
+          repeatCount = 0;
+          feedback.innerHTML = "❌ Sbagliato di nuovo. Torniamo da capo!";
+        }
+
+      } else if (stage === "blind") {
+        if (input === current.reading) {
+          blindCount++;
+          const applausi = ["よくできました！", "完璧！", "素晴らしい！"];
+          feedback.innerHTML = `✅ ${applausi[blindCount - 1]}`;
+          if (blindCount >= 3) {
+            setTimeout(getRandomWord, 1000);
+          }
+        } else {
+          feedback.innerHTML = "❌ Sbagliato. Torniamo alla ripetizione con aiuti!";
+          stage = "correction";
+          repeatCount = 0;
+          updateDisplay();
+        }
+      }
     }
 
     function goBack() {
       document.getElementById('exercise').style.display = 'none';
       document.getElementById('menu').style.display = 'block';
     }
+
+    document.getElementById("userInput").addEventListener("keyup", function(event) {
+      if (event.key === "Enter") checkAnswer();
+    });
   </script>
 
 </body>
