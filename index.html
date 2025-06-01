@@ -73,7 +73,7 @@
         .then(data => {
           vocab = data.map(row => ({
             kanji: row.Kanji || row.Kana,
-            reading: row.hiragana, // Solo hiragana, niente fallback
+            reading: row.hiragana,
             meaning: row.significato || ""
           }));
           document.getElementById('menu').style.display = 'none';
@@ -128,9 +128,9 @@
         if (input === current.reading) {
           repeatCount++;
           const encouragements = [
-            "✍️ もう一回！ (もういっかい) – Ancora una volta!",
-            "✍️ いいぞ！ (いいぞ) – Ben fatto!",
-            "✍️ あと一回！ (あといっかい) – Ancora una sola!"
+            "✍️ もう一回！ (もういっかい) – Un'altra volta!",
+            "✍️ いいぞ！ (いいぞ) – Grande!",
+            "✍️ あと一回！ (あといっかい) – Solo un'altra!"
           ];
           feedback.innerHTML = encouragements[repeatCount - 1];
           if (repeatCount >= 3) {
