@@ -80,7 +80,10 @@
       const errorBox = document.getElementById('error');
       errorBox.innerText = "";
 
-      fetch(sheetBase + sheetName)
+      // 👇 Cambia il nome solo per la tab N5
+      const actualSheetName = (sheetName === "N5") ? "n5_section" : sheetName;
+
+      fetch(sheetBase + actualSheetName)
         .then(res => {
           if (!res.ok) throw new Error("Modulo non trovato: " + sheetName);
           return res.json();
