@@ -69,12 +69,14 @@
     let vocab = [];
     let current = null;
     let currentModule = "";
+    let kanaMode = false;
     let stage = "normal";
     let repeatCount = 0;
     let blindCount = 0;
 
     function startGame(sheetName) {
       currentModule = sheetName;
+      kanaMode = (sheetName === "Hiragana" || sheetName === "Katakana");
       const errorBox = document.getElementById('error');
       errorBox.innerText = "";
 
@@ -85,21 +87,21 @@
         })
         .then(data => {
           vocab = data.map(row => ({
-            kanji: row.Kanji || row.Kana,
-            reading: row.hiragana,
+            kanji: row.Kanji || row.Kana || "",
+            kana: row.Kana || "",
+            hiragana: row.hiragana || "",
             romaji: row.romaji || "",
             meaning: row.significato || ""
           }));
           document.getElementById('menu').style.display = 'none';
           document.getElementById('exercise').style.display = 'block';
           document.getElementById('moduleTitle').innerText = `Modulo: ${sheetName}`;
-          const input = document.getElementById('userInput');
-          input.placeholder = (sheetName === "N5") ? "Scrivi in hiragana" : "Scrivi in romaji";
+          document.getElementById('userInput').placeholder = kanaMode ? "Scrivi in romaji" : "Scrivi in hiragana";
           getRandomWord();
         })
         .catch(err => {
           console.error(err);
-          errorBox.innerText = "❌ Errore nel caricamento del modulo '" + sheetName + "'. Controlla il nome della tab sul foglio Google.";
+          errorBox.innerText = "❌ Errore nel caricamento del modulo '" + sheetName + "'.";
         });
     }
 
@@ -117,23 +119,26 @@
       document.getElementById('feedback').innerText = '';
 
       if (stage === "normal") {
-        display.innerText = current.kanji;
+        display.innerText = kanaMode ? current.kana : current.kanji;
       } else if (stage === "correction") {
-        display.innerHTML = `${current.kanji}<br><span class='answer'>${current.reading} – ${current.meaning}</span>`;
+        const answerText = kanaMode 
+          ? `${current.romaji}` 
+          : `${current.hiragana} – ${current.meaning}`;
+        display.innerHTML = `${kanaMode ? current.kana : current.kanji}<br><span class='answer'>${answerText}</span>`;
       } else if (stage === "blind") {
-        display.innerText = current.kanji;
+        display.innerText = kanaMode ? current.kana : current.kanji;
       }
     }
 
     function checkAnswer() {
       const inputField = document.getElementById('userInput');
-      const input = inputField.value.trim();
+      const input = inputField.value.trim().toLowerCase();
       const feedback = document.getElementById('feedback');
       inputField.value = '';
 
       if (!current) return;
 
-      const expected = (currentModule === "N5") ? current.reading : current.romaji.toLowerCase();
+      const expected = kanaMode ? current.romaji.toLowerCase() : current.hiragana;
 
       if (stage === "normal") {
         if (input === expected) {
