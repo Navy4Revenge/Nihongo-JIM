@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Allenamento Giapponese</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+      text-align: center;
+      padding: 50px;
+    }
+    #menu button {
+      margin: 10px;
+      padding: 15px 25px;
+      font-size: 16px;
+    }
+    #exercise {
+      display: none;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Allenamento Giapponese</h1>
+  <div id="menu">
+    <button onclick="startGame('Hiragana')">🟢 Hiragana</button>
+    <button onclick="startGame('Katakana')">🔴 Katakana</button>
+    <button onclick="startGame('N5')">🥷 Vocabolario N5</button>
+  </div>
+
+  <div id="exercise">
+    <h2 id="moduleTitle"></h2>
+    <div id="content"></div>
+    <button onclick="goBack()">🔙 Torna al menu</button>
+  </div>
+
+  <script>
+    const sheetId = '1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA';
+    const modules = {
+      'Hiragana': '0', // Sostituisci con il gid corretto
+      'Katakana': '123456789', // Sostituisci con il gid corretto
+      'N5': '987654321' // Sostituisci con il gid corretto
+    };
+
+    function startGame(moduleName) {
+      const gid = modules[moduleName];
+      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+      fetch(url)
+        .then(response => response.text())
+        .then(data => {
+          document.getElementById('menu').style.display = 'none';
+          document.getElementById('exercise').style.display = 'block';
+          document.getElementById('moduleTitle').innerText = `Modulo: ${moduleName}`;
+          document.getElementById('content').innerText = data;
+          // Qui puoi aggiungere la logica per gestire i dati CSV e avviare l'esercizio
+        })
+        .catch(error => {
+          console.error('Errore nel caricamento dei dati:', error);
+        });
+    }
+
+    function goBack() {
+      document.getElementById('exercise').style.display = 'none';
+      document.getElementById('menu').style.display = 'block';
+    }
+  </script>
+
+</body>
+</html>
