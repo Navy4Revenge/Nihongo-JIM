@@ -38,6 +38,10 @@
     .correct { color: lightgreen; }
     .incorrect { color: #ff5555; }
     .answer { color: #ccc; font-style: italic; margin-top: 10px; }
+    #error {
+      margin-top: 20px;
+      color: #ff5555;
+    }
   </style>
 </head>
 <body>
@@ -48,12 +52,13 @@
     <button onclick="startGame('Hiragana')">🟢 Hiragana</button><br>
     <button onclick="startGame('Katakana')">🔴 Katakana</button><br>
     <button onclick="startGame('N5')">🥷 Vocabolario N5</button>
+    <p id="error"></p>
   </div>
 
   <div id="exercise">
     <h2 id="moduleTitle"></h2>
     <div id="currentWord" style="font-size: 40px; margin: 20px 0;"></div>
-    <input type="text" id="userInput" placeholder="Scrivi la lettura in hiragana">
+    <input type="text" id="userInput" placeholder="Scrivi la lettura">
     <button onclick="checkAnswer()">Verifica</button>
     <p id="feedback"></p>
     <button onclick="goBack()">🔙 Torna al menu</button>
@@ -63,23 +68,38 @@
     const sheetBase = 'https://opensheet.elk.sh/1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA/';
     let vocab = [];
     let current = null;
+    let currentModule = "";
     let stage = "normal";
     let repeatCount = 0;
     let blindCount = 0;
 
     function startGame(sheetName) {
+      currentModule = sheetName;
+      const errorBox = document.getElementById('error');
+      errorBox.innerText = "";
+
       fetch(sheetBase + sheetName)
-        .then(res => res.json())
+        .then(res => {
+          if (!res.ok) throw new Error("Modulo non trovato: " + sheetName);
+          return res.json();
+        })
         .then(data => {
           vocab = data.map(row => ({
             kanji: row.Kanji || row.Kana,
             reading: row.hiragana,
+            romaji: row.romaji || "",
             meaning: row.significato || ""
           }));
           document.getElementById('menu').style.display = 'none';
           document.getElementById('exercise').style.display = 'block';
           document.getElementById('moduleTitle').innerText = `Modulo: ${sheetName}`;
+          const input = document.getElementById('userInput');
+          input.placeholder = (sheetName === "N5") ? "Scrivi in hiragana" : "Scrivi in romaji";
           getRandomWord();
+        })
+        .catch(err => {
+          console.error(err);
+          errorBox.innerText = "❌ Errore nel caricamento del modulo '" + sheetName + "'. Controlla il nome della tab sul foglio Google.";
         });
     }
 
@@ -113,8 +133,10 @@
 
       if (!current) return;
 
+      const expected = (currentModule === "N5") ? current.reading : current.romaji.toLowerCase();
+
       if (stage === "normal") {
-        if (input === current.reading) {
+        if (input === expected) {
           feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
           setTimeout(getRandomWord, 1000);
         } else {
@@ -125,7 +147,7 @@
         }
 
       } else if (stage === "correction") {
-        if (input === current.reading) {
+        if (input === expected) {
           repeatCount++;
           const encouragements = [
             "✍️ もう一回！ (もういっかい) – Un'altra volta!",
@@ -143,7 +165,7 @@
         }
 
       } else if (stage === "blind") {
-        if (input === current.reading) {
+        if (input === expected) {
           blindCount++;
           const cheers = [
             "✅ よくできました！ (よくできました) – Ottimo lavoro!",
