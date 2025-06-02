@@ -113,6 +113,41 @@
       return sheetName === "N5" ? "n5_section" : sheetName;
     }
 
+    function aggiornaProgresso(modulo, parola, punteggio) {
+  const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
+
+  if (!salvataggio[modulo]) {
+    salvataggio[modulo] = {};
+  }
+
+  salvataggio[modulo][parola] = punteggio;
+
+  // Ricalcola media
+  const punti = Object.entries(salvataggio[modulo])
+    .filter(([k]) => k !== "score")
+    .map(([_, v]) => v);
+
+  const media = punti.length
+    ? Math.round((punti.reduce((a, b) => a + b, 0) / punti.length) * 10 * 100) / 100
+    : 0;
+
+  salvataggio[modulo].score = media;
+
+  localStorage.setItem("progresso", JSON.stringify(salvataggio));
+  mostraProgresso();
+}
+
+function mostraProgresso() {
+  const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
+  let html = "<h3>📈 Progresso</h3>";
+
+  for (const [modulo, dati] of Object.entries(progresso)) {
+    html += `<p><strong>${modulo}</strong>: ${dati.score || 0} / 10</p>`;
+  }
+
+  document.getElementById("progressoBox").innerHTML = html;
+}
+
     function startGame(sheetName) {
       currentModule = sheetName;
       kanaMode = (sheetName === "Hiragana" || sheetName === "Katakana");
@@ -213,64 +248,75 @@
     }
 
     function checkAnswer() {
-      const inputField = document.getElementById('userInput');
-      const input = inputField.value.trim().toLowerCase();
-      const feedback = document.getElementById('feedback');
-      inputField.value = '';
+  const inputField = document.getElementById('userInput');
+  const input = inputField.value.trim().toLowerCase();
+  const feedback = document.getElementById('feedback');
+  inputField.value = '';
 
-      if (!current) return;
+  if (!current) return;
 
-      const expected = kanaMode ? current.romaji.toLowerCase() : current.hiragana;
+  const expected = kanaMode ? current.romaji.toLowerCase() : current.hiragana;
 
-      if (stage === "normal") {
-        if (input === expected) {
-          feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
-          setTimeout(getRandomWord, 1000);
-        } else {
-          stage = "correction";
-          repeatCount = 0;
-          feedback.innerHTML = "❌ Sbagliato!";
-          updateDisplay();
-        }
+  if (stage === "normal") {
+    if (input === expected) {
+      feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
 
-      } else if (stage === "correction") {
-        if (input === expected) {
-          repeatCount++;
-          const encouragements = [
-            "✍️ もう一回！ (もういっかい) – Un'altra volta!",
-            "✍️ いいぞ！ (いいぞ) – Grande!",
-            "✍️ あと一回！ (あといっかい) – Solo un'altra!"
-          ];
-          feedback.innerHTML = encouragements[repeatCount - 1];
-          if (repeatCount >= 3) {
-            stage = "blind";
-            updateDisplay();
-          }
-        } else {
-          repeatCount = 0;
-          feedback.innerHTML = "❌ Sbagliato di nuovo. Torniamo da capo!";
-        }
+      // 🔥 AGGIORNA PROGRESSO: 1 punto per risposta corretta diretta
+      aggiornaProgresso(currentModule, current.kanji || current.kana, 1);
 
-      } else if (stage === "blind") {
-        if (input === expected) {
-          blindCount++;
-          const cheers = [
-            "✅ よくできました！ (よくできました) – Ottimo lavoro!",
-            "✅ 完璧！ (かんぺき) – Perfetto!",
-            "✅ 素晴らしい！ (すばらしい) – Meraviglioso!"
-          ];
-          feedback.innerHTML = cheers[blindCount - 1];
-          if (blindCount >= 3) {
-            setTimeout(getRandomWord, 1000);
-          }
-        } else {
-          feedback.innerHTML = "❌ Sbagliato. Torniamo alla ripetizione con aiuti!";
-          stage = "correction";
-          repeatCount = 0;
-          updateDisplay();
-        }
-      }
+      setTimeout(getRandomWord, 1000);
+    } else {
+      stage = "correction";
+      repeatCount = 0;
+      feedback.innerHTML = "❌ Sbagliato!";
+      updateDisplay();
     }
+
+  } else if (stage === "correction") {
+    if (input === expected) {
+      repeatCount++;
+      const encouragements = [
+        "✍️ もう一回！ (もういっかい) – Un'altra volta!",
+        "✍️ いいぞ！ (いいぞ) – Grande!",
+        "✍️ あと一回！ (あといっかい) – Solo un'altra!"
+      ];
+      feedback.innerHTML = encouragements[repeatCount - 1];
+      if (repeatCount >= 3) {
+        stage = "blind";
+        updateDisplay();
+      }
+    } else {
+      repeatCount = 0;
+      feedback.innerHTML = "❌ Sbagliato di nuovo. Torniamo da capo!";
+    }
+
+  } else if (stage === "blind") {
+    if (input === expected) {
+      blindCount++;
+      const cheers = [
+        "✅ よくできました！ (よくできました) – Ottimo lavoro!",
+        "✅ 完璧！ (かんぺき) – Perfetto!",
+        "✅ 素晴らしい！ (すばらしい) – Meraviglioso!"
+      ];
+      feedback.innerHTML = cheers[blindCount - 1];
+
+      if (blindCount === 1) {
+        // 🔥 AGGIORNA PROGRESSO: 0.5 punto per risposta corretta in fase blind
+        aggiornaProgresso(currentModule, current.kanji || current.kana, 0.5);
+      }
+
+      if (blindCount >= 3) {
+        setTimeout(getRandomWord, 1000);
+      }
+    } else {
+      feedback.innerHTML = "❌ Sbagliato. Torniamo alla ripetizione con aiuti!";
+      stage = "correction";
+      repeatCount = 0;
+      updateDisplay();
+    }
+  }
+}
+
 
     function goBack() {
       document.getElementById('exercise').style.display = 'none';
@@ -282,6 +328,6 @@
       if (event.key === "Enter") checkAnswer();
     });
   </script>
-
+<div id="progressoBox" style="margin-top: 40px;"></div>
 </body>
 </html>
