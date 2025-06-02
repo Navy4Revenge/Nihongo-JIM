@@ -65,10 +65,10 @@
   </div>
 
   <div id="main-app">
-    <!-- QUI il contenuto della tua app attuale -->
+    <!-- Qui inserisci la tua app esistente -->
     <h1>Allenamento in Giapponese</h1>
     <p>Benvenuto, <span id="user-display"></span>!</p>
-    <!-- ...il resto della tua app JS qui... -->
+    <!-- Qui puoi inserire esercizi, logiche ecc -->
   </div>
 
   <script>
@@ -80,7 +80,7 @@
       }
 
       try {
-        const response = await fetch("https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec", {
+        const response = await fetch("https://script.google.com/macros/s/AKfycbyOdCMSDE7Ebz0kQvRUQ4c0ZyerYzEJra-VkZM2qLYZxXRQLP0mICLWA29TvFB9QRCUMA/exec", {
           method: "POST",
           body: JSON.stringify({ username }),
           headers: {
@@ -91,16 +91,15 @@
         const result = await response.json();
 
         if (result.success) {
-          // Mostra la tua app
           document.getElementById("login-screen").style.display = "none";
           document.getElementById("main-app").style.display = "flex";
           document.getElementById("user-display").innerText = username;
           window.loggedUser = username;
         } else {
-          alert("Errore durante il login.");
+          alert("Errore durante il login: " + result.message);
         }
       } catch (error) {
-        console.error("Errore nella richiesta al backend:", error);
+        console.error("Errore nella richiesta:", error);
         alert("Errore di rete durante il login.");
       }
     }
