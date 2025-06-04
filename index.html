@@ -69,7 +69,9 @@
     <button onclick="viewStudy('Katakana')">📚 Studio</button><br>
 
     <button onclick="startGame('N5')">🥷 Vocabolario N5</button>
-    <button onclick="viewStudy('N5')">📚 Studio</button>
+    <button onclick="viewStudy('N5')">📚 Studio</button><br>
+
+    <button onclick="startRepetitionExercise()">🧠 Ripetizione forzata</button>
 
     <p id="error"></p>
   </div>
@@ -108,45 +110,39 @@
     let stage = "normal";
     let repeatCount = 0;
     let blindCount = 0;
+    let repetitionWord = null;
+    let repetitionCount = 0;
 
     function getActualSheetName(sheetName) {
       return sheetName === "N5" ? "n5_section" : sheetName;
     }
 
     function aggiornaProgresso(modulo, parola, punteggio) {
-  const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
+      const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
+      if (!salvataggio[modulo]) salvataggio[modulo] = {};
+      salvataggio[modulo][parola] = punteggio;
 
-  if (!salvataggio[modulo]) {
-    salvataggio[modulo] = {};
-  }
+      const punti = Object.entries(salvataggio[modulo])
+        .filter(([k]) => k !== "score")
+        .map(([_, v]) => v);
 
-  salvataggio[modulo][parola] = punteggio;
+      const media = punti.length
+        ? Math.round((punti.reduce((a, b) => a + b, 0) / punti.length) * 10 * 100) / 100
+        : 0;
 
-  // Ricalcola media
-  const punti = Object.entries(salvataggio[modulo])
-    .filter(([k]) => k !== "score")
-    .map(([_, v]) => v);
+      salvataggio[modulo].score = media;
+      localStorage.setItem("progresso", JSON.stringify(salvataggio));
+      mostraProgresso();
+    }
 
-  const media = punti.length
-    ? Math.round((punti.reduce((a, b) => a + b, 0) / punti.length) * 10 * 100) / 100
-    : 0;
-
-  salvataggio[modulo].score = media;
-
-  localStorage.setItem("progresso", JSON.stringify(salvataggio));
-  mostraProgresso();
-}
-
-function mostraProgresso() {
-  const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
-  let html = "<h3>📈 Progresso</h3>";
-
-  for (const [modulo, dati] of Object.entries(progresso)) {
-    html += `<p><strong>${modulo}</strong>: ${dati.score || 0} / 10</p>`;
-  }
-
-  document.getElementById("progressoBox").innerHTML = html;
-}
+    function mostraProgresso() {
+      const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
+      let html = "<h3>📈 Progresso</h3>";
+      for (const [modulo, dati] of Object.entries(progresso)) {
+        html += `<p><strong>${modulo}</strong>: ${dati.score || 0} / 10</p>`;
+      }
+      document.getElementById("progressoBox").innerHTML = html;
+    }
 
     function startGame(sheetName) {
       currentModule = sheetName;
@@ -234,7 +230,6 @@ function mostraProgresso() {
       const display = document.getElementById('currentWord');
       document.getElementById('userInput').value = '';
       document.getElementById('feedback').innerText = '';
-
       if (stage === "normal") {
         display.innerText = kanaMode ? current.kana : current.kanji;
       } else if (stage === "correction") {
@@ -248,75 +243,134 @@ function mostraProgresso() {
     }
 
     function checkAnswer() {
-  const inputField = document.getElementById('userInput');
-  const input = inputField.value.trim().toLowerCase();
-  const feedback = document.getElementById('feedback');
-  inputField.value = '';
-
-  if (!current) return;
-
-  const expected = kanaMode ? current.romaji.toLowerCase() : current.hiragana;
-
-  if (stage === "normal") {
-    if (input === expected) {
-      feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
-
-      // 🔥 AGGIORNA PROGRESSO: 1 punto per risposta corretta diretta
-      aggiornaProgresso(currentModule, current.kanji || current.kana, 1);
-
-      setTimeout(getRandomWord, 1000);
-    } else {
-      stage = "correction";
-      repeatCount = 0;
-      feedback.innerHTML = "❌ Sbagliato!";
-      updateDisplay();
-    }
-
-  } else if (stage === "correction") {
-    if (input === expected) {
-      repeatCount++;
-      const encouragements = [
-        "✍️ もう一回！ (もういっかい) – Un'altra volta!",
-        "✍️ いいぞ！ (いいぞ) – Grande!",
-        "✍️ あと一回！ (あといっかい) – Solo un'altra!"
-      ];
-      feedback.innerHTML = encouragements[repeatCount - 1];
-      if (repeatCount >= 3) {
-        stage = "blind";
-        updateDisplay();
-      }
-    } else {
-      repeatCount = 0;
-      feedback.innerHTML = "❌ Sbagliato di nuovo. Torniamo da capo!";
-    }
-
-  } else if (stage === "blind") {
-    if (input === expected) {
-      blindCount++;
-      const cheers = [
-        "✅ よくできました！ (よくできました) – Ottimo lavoro!",
-        "✅ 完璧！ (かんぺき) – Perfetto!",
-        "✅ 素晴らしい！ (すばらしい) – Meraviglioso!"
-      ];
-      feedback.innerHTML = cheers[blindCount - 1];
-
-      if (blindCount === 1) {
-        // 🔥 AGGIORNA PROGRESSO: 0.5 punto per risposta corretta in fase blind
-        aggiornaProgresso(currentModule, current.kanji || current.kana, 0.5);
+      // Se siamo nell'esercizio di ripetizione
+      if (document.getElementById('moduleTitle').innerText.includes("Ripetizione Forzata")) {
+        checkRepetitionAnswer();
+        return;
       }
 
-      if (blindCount >= 3) {
-        setTimeout(getRandomWord, 1000);
-      }
-    } else {
-      feedback.innerHTML = "❌ Sbagliato. Torniamo alla ripetizione con aiuti!";
-      stage = "correction";
-      repeatCount = 0;
-      updateDisplay();
-    }
-  }
-}
+      const inputField = document.getElementById('userInput');
+      const input = inputField.value.trim().toLowerCase();
+      const feedback = document.getElementById('feedback');
+      inputField.value = '';
 
+      if (!current) return;
+      const expected = kanaMode ? current.romaji.toLowerCase() : current.hiragana;
+
+      if (stage === "normal") {
+        if (input === expected) {
+          feedback.innerHTML = "✅ <span class='correct'>Corretto!</span>";
+          aggiornaProgresso(currentModule, current.kanji || current.kana, 1);
+          setTimeout(getRandomWord, 1000);
+        } else {
+          stage = "correction";
+          repeatCount = 0;
+          feedback.innerHTML = "❌ Sbagliato!";
+          updateDisplay();
+        }
+
+      } else if (stage === "correction") {
+        if (input === expected) {
+          repeatCount++;
+          const encouragements = [
+            "✍️ もう一回！ – Un'altra volta!",
+            "✍️ いいぞ！ – Grande!",
+            "✍️ あと一回！ – Solo un'altra!"
+          ];
+          feedback.innerHTML = encouragements[repeatCount - 1];
+          if (repeatCount >= 3) {
+            stage = "blind";
+            updateDisplay();
+          }
+        } else {
+          repeatCount = 0;
+          feedback.innerHTML = "❌ Sbagliato di nuovo. Torniamo da capo!";
+        }
+
+      } else if (stage === "blind") {
+        if (input === expected) {
+          blindCount++;
+          const cheers = [
+            "✅ よくできました！ – Ottimo lavoro!",
+            "✅ 完璧！ – Perfetto!",
+            "✅ 素晴らしい！ – Meraviglioso!"
+          ];
+          feedback.innerHTML = cheers[blindCount - 1];
+          if (blindCount === 1) {
+            aggiornaProgresso(currentModule, current.kanji || current.kana, 0.5);
+          }
+          if (blindCount >= 3) {
+            setTimeout(getRandomWord, 1000);
+          }
+        } else {
+          feedback.innerHTML = "❌ Sbagliato. Torniamo alla ripetizione con aiuti!";
+          stage = "correction";
+          repeatCount = 0;
+          updateDisplay();
+        }
+      }
+    }
+
+    function startRepetitionExercise() {
+      currentModule = "N5";
+      const errorBox = document.getElementById('error');
+      errorBox.innerText = "";
+
+      fetch(sheetBase + "n5_section")
+        .then(res => {
+          if (!res.ok) throw new Error("Modulo non trovato: N5");
+          return res.json();
+        })
+        .then(data => {
+          vocab = data.map(row => ({
+            kanji: row.Kanji || row.Kana || "",
+            kana: row.Kana || "",
+            hiragana: row.hiragana || "",
+            romaji: row.romaji || "",
+            meaning: row.significato || ""
+          }));
+          document.getElementById('menu').style.display = 'none';
+          document.getElementById('studyView').style.display = 'none';
+          document.getElementById('exercise').style.display = 'block';
+          document.getElementById('moduleTitle').innerText = `🧠 Ripetizione Forzata (5x)`;
+          document.getElementById('userInput').placeholder = "Scrivi in hiragana";
+          startNewRepetition();
+        })
+        .catch(err => {
+          console.error(err);
+          errorBox.innerText = "❌ Errore nel caricamento del modulo 'N5'.";
+        });
+    }
+
+    function startNewRepetition() {
+      repetitionWord = vocab[Math.floor(Math.random() * vocab.length)];
+      repetitionCount = 0;
+      updateRepetitionDisplay();
+    }
+
+    function updateRepetitionDisplay() {
+      document.getElementById('feedback').innerHTML = `✍️ Inserisci <strong>${repetitionWord.hiragana}</strong> (${repetitionCount}/5)`;
+      document.getElementById('currentWord').innerHTML = `${repetitionWord.kanji}<br><span class='answer'>${repetitionWord.hiragana}</span>`;
+      document.getElementById('userInput').value = '';
+    }
+
+    function checkRepetitionAnswer() {
+      const input = document.getElementById('userInput').value.trim();
+      if (input === repetitionWord.hiragana) {
+        repetitionCount++;
+        if (repetitionCount >= 5) {
+          aggiornaProgresso(currentModule, repetitionWord.kanji || repetitionWord.kana, 1);
+          document.getElementById('feedback').innerHTML = "✅ Fatto! Nuova parola in arrivo...";
+          setTimeout(startNewRepetition, 1000);
+        } else {
+          updateRepetitionDisplay();
+        }
+      } else {
+        document.getElementById('feedback').innerHTML = "❌ Sbagliato. Ricomincia da capo!";
+        repetitionCount = 0;
+        updateRepetitionDisplay();
+      }
+    }
 
     function goBack() {
       document.getElementById('exercise').style.display = 'none';
@@ -327,7 +381,10 @@ function mostraProgresso() {
     document.getElementById("userInput").addEventListener("keyup", function(event) {
       if (event.key === "Enter") checkAnswer();
     });
+
+    mostraProgresso();
   </script>
-<div id="progressoBox" style="margin-top: 40px;"></div>
+
+  <div id="progressoBox" style="margin-top: 40px;"></div>
 </body>
 </html>
