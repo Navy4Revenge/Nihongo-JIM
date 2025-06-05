@@ -1,7 +1,7 @@
 const buttonContainer = document.getElementById("button-container");
 
 // Moduli disponibili — aggiungi qui i nomi dei moduli HTML (senza estensione)
-const modules = ["Hiragana", "Katakana", "N5"];
+const modules = ["Hiragana", "Katakana", "N5_section"];
 
 // Etichette dei tipi + emoji per renderlo più intuitivo
 const typeLabels = {
