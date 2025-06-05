@@ -4,21 +4,34 @@
   <meta charset="UTF-8">
   <title>Modulo</title>
   <link rel="stylesheet" href="../style/style.css">
+  <style>
+    #userInput {
+      font-size: 28px;
+      padding: 15px;
+      width: 300px;
+      text-align: center;
+    }
+    #feedback {
+      margin-top: 15px;
+      font-size: 20px;
+    }
+    #prompt {
+      font-size: 50px;
+      margin-bottom: 20px;
+    }
+  </style>
 </head>
 <body>
   <h1 id="pageTitle">Caricamento...</h1>
 
-  <!-- Hint toggle solo per esercizio e quiz -->
   <div id="hintToggle" style="margin-bottom: 20px; display: none;">
     <label><input type="checkbox" id="hintCheckbox" checked> Mostra hint (lettura e significato)</label>
   </div>
 
-  <!-- Area dinamica -->
   <div id="content">📡 Caricamento dati in corso...</div>
 
-  <!-- Input e feedback -->
   <div id="exerciseArea" style="display: none;">
-    <div id="prompt" style="font-size: 40px; margin-bottom: 20px;"></div>
+    <div id="prompt"></div>
     <input type="text" id="userInput" placeholder="Scrivi qui...">
     <button onclick="checkAnswer()">Verifica</button>
     <p id="feedback"></p>
@@ -69,7 +82,6 @@
       const hintToggle = document.getElementById("hintToggle");
       const content = document.getElementById("content");
       const exerciseArea = document.getElementById("exerciseArea");
-      const input = document.getElementById("userInput");
 
       if (type === "Studio") {
         hintToggle.style.display = "none";
@@ -100,7 +112,6 @@
         hintToggle.style.display = "block";
         content.innerHTML = "";
         exerciseArea.style.display = "block";
-        input.focus();
         nextWord();
       }
     }
@@ -118,37 +129,43 @@
       prompt.innerHTML = current.kanji;
       feedback.innerText = "";
       input.value = "";
+      input.focus();
     }
 
     function checkAnswer() {
-      const input = document.getElementById("userInput").value.trim().toLowerCase();
+      const inputField = document.getElementById("userInput");
+      const input = inputField.value.trim().toLowerCase();
       const feedback = document.getElementById("feedback");
       const showHints = document.getElementById("hintCheckbox").checked;
-      const prompt = document.getElementById("prompt");
 
       const expected = isKanaModule ? current.romaji.toLowerCase() : current.hiragana;
 
+      // Sempre cancella input
+      inputField.value = "";
+      inputField.focus();
+
+      const solution = isKanaModule
+        ? `${current.romaji} – ${current.meaning}`
+        : `${current.hiragana} – ${current.meaning}`;
+
       if (stage === "normal") {
         if (input === expected) {
-          feedback.innerHTML = `✅ Corretto!<br><em>${current.hiragana} – ${current.meaning}</em>`;
+          feedback.innerHTML = `✅ Corretto!<br><em>${solution}</em>`;
           setTimeout(nextWord, 1000);
         } else {
-          feedback.innerText = "❌ Sbagliato!";
-          if (showHints) {
-            feedback.innerHTML += `<br><em>${current.hiragana} – ${current.meaning}</em>`;
-          }
+          feedback.innerHTML = `❌ Sbagliato!<br><em>${solution}</em>`;
           stage = "correction";
         }
       } else if (stage === "correction") {
         if (input === expected) {
           repeatCount++;
-          feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x con hint`;
+          feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x con hint<br><em>${solution}</em>`;
           if (repeatCount >= 3) {
             stage = "blind";
           }
         } else {
           repeatCount = 0;
-          feedback.innerText = "❌ Sbagliato di nuovo. Ricominciamo!";
+          feedback.innerHTML = `❌ Ancora sbagliato. Ricominciamo.<br><em>${solution}</em>`;
         }
       } else if (stage === "blind") {
         if (input === expected) {
@@ -160,7 +177,7 @@
         } else {
           stage = "correction";
           repeatCount = 0;
-          feedback.innerHTML = "❌ Torniamo agli aiuti.";
+          feedback.innerHTML = `❌ Torniamo agli aiuti.<br><em>${solution}</em>`;
         }
       }
     }
