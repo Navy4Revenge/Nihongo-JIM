@@ -13,13 +13,11 @@ const typeLabels = {
   "Quiz": "❓ Quiz"
 };
 
-modules.forEach(moduleName => {
-  // Titolo del modulo
-  const label = document.createElement("h3");
-  label.textContent = moduleName;
-  buttonContainer.appendChild(label);
+modules.forEach(({ label, file }) => {
+  const title = document.createElement("h3");
+  title.textContent = label;
+  buttonContainer.appendChild(title);
 
-  // Contenitore dei pulsanti
   const buttonRow = document.createElement("div");
   buttonRow.classList.add("button-row");
 
@@ -27,8 +25,7 @@ modules.forEach(moduleName => {
     const btn = document.createElement("button");
     btn.innerText = labelText;
     btn.onclick = () => {
-      // Aggiunge ?type= al link
-      window.location.href = `pages/${moduleName}.html?type=${type}`;
+      window.location.href = `pages/${file}.html?type=${type}`;
     };
     buttonRow.appendChild(btn);
   });
