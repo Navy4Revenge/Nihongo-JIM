@@ -7,26 +7,42 @@
 </head>
 <body>
   <h1 id="pageTitle">Caricamento...</h1>
-  <div id="content">📡 Attendere, sto caricando il contenuto...</div>
+
+  <!-- Hint toggle solo per esercizio e quiz -->
+  <div id="hintToggle" style="margin-bottom: 20px; display: none;">
+    <label><input type="checkbox" id="hintCheckbox" checked> Mostra hint (lettura e significato)</label>
+  </div>
+
+  <!-- Area dinamica -->
+  <div id="content">📡 Caricamento dati in corso...</div>
+
+  <!-- Input e feedback -->
+  <div id="exerciseArea" style="display: none;">
+    <div id="prompt" style="font-size: 40px; margin-bottom: 20px;"></div>
+    <input type="text" id="userInput" placeholder="Scrivi qui...">
+    <button onclick="checkAnswer()">Verifica</button>
+    <p id="feedback"></p>
+  </div>
+
   <p id="error" style="color: red; margin-top: 20px;"></p>
 
   <script>
-    // Ottieni il nome del modulo dal nome del file HTML
     const fileName = location.pathname.split('/').pop().split('.html')[0];
     const moduleName = decodeURIComponent(fileName);
-
-    // Ottieni il tipo dal parametro GET (es: ?type=Studio)
     const params = new URLSearchParams(window.location.search);
     const type = params.get("type") || "Studio";
-
-    // Inserisci qui l'ID del tuo Google Sheet
-    const sheetId = "1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA"; // <-- SOSTITUISCI con il tuo ID se cambia
-
-    // URL del tab corrispondente (deve avere il nome uguale al file, es. Hiragana, Katakana...)
+    const sheetId = "1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA";
     const sheetUrl = `https://opensheet.elk.sh/${sheetId}/${moduleName}`;
+    const isKanaModule = ["Hiragana", "Katakana"].includes(moduleName);
 
     document.title = `${moduleName} – ${type}`;
-    document.getElementById("pageTitle").innerText = `📘 ${moduleName} – ${type}`;
+    document.getElementById("pageTitle").innerText = `${moduleName} – ${type}`;
+
+    let vocab = [];
+    let current = null;
+    let stage = "normal";
+    let repeatCount = 0;
+    let blindCount = 0;
 
     fetch(sheetUrl)
       .then(res => {
@@ -34,10 +50,30 @@
         return res.json();
       })
       .then(data => {
-        const contentDiv = document.getElementById("content");
-        if (!data.length) throw new Error("Il modulo è vuoto.");
-        
-        // Crea una tabella di esempio (puoi adattarla in base al tipo)
+        vocab = data.map(row => ({
+          kanji: row.Kanji || row.Kana || "",
+          kana: row.Kana || "",
+          hiragana: row.hiragana || "",
+          romaji: row.romaji || "",
+          meaning: row.significato || ""
+        }));
+        startModule();
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById("error").innerText = `❌ Errore: ${err.message}`;
+        setTimeout(() => window.location.href = "../index.html", 3000);
+      });
+
+    function startModule() {
+      const hintToggle = document.getElementById("hintToggle");
+      const content = document.getElementById("content");
+      const exerciseArea = document.getElementById("exerciseArea");
+      const input = document.getElementById("userInput");
+
+      if (type === "Studio") {
+        hintToggle.style.display = "none";
+        exerciseArea.style.display = "none";
         const table = document.createElement("table");
         table.innerHTML = `
           <thead>
@@ -49,24 +85,89 @@
             </tr>
           </thead>
           <tbody>
-            ${data.map(row => `
+            ${vocab.map(r => `
               <tr>
-                <td>${row.Kanji || row.Kana || "-"}</td>
-                <td>${row.hiragana || "-"}</td>
-                <td>${row.romaji || "-"}</td>
-                <td>${row.significato || "-"}</td>
+                <td>${r.kanji}</td>
+                <td>${r.hiragana || "-"}</td>
+                <td>${r.romaji || "-"}</td>
+                <td>${r.meaning || "-"}</td>
               </tr>
             `).join("")}
-          </tbody>
-        `;
-        contentDiv.innerHTML = "";
-        contentDiv.appendChild(table);
-      })
-      .catch(err => {
-        console.error(err);
-        document.getElementById("error").innerText = `❌ Errore: ${err.message}`;
-        setTimeout(() => window.location.href = "../index.html", 3000);
-      });
+          </tbody>`;
+        content.innerHTML = "";
+        content.appendChild(table);
+      } else {
+        hintToggle.style.display = "block";
+        content.innerHTML = "";
+        exerciseArea.style.display = "block";
+        input.focus();
+        nextWord();
+      }
+    }
+
+    function nextWord() {
+      current = vocab[Math.floor(Math.random() * vocab.length)];
+      stage = "normal";
+      repeatCount = 0;
+      blindCount = 0;
+
+      const prompt = document.getElementById("prompt");
+      const feedback = document.getElementById("feedback");
+      const input = document.getElementById("userInput");
+
+      prompt.innerHTML = current.kanji;
+      feedback.innerText = "";
+      input.value = "";
+    }
+
+    function checkAnswer() {
+      const input = document.getElementById("userInput").value.trim().toLowerCase();
+      const feedback = document.getElementById("feedback");
+      const showHints = document.getElementById("hintCheckbox").checked;
+      const prompt = document.getElementById("prompt");
+
+      const expected = isKanaModule ? current.romaji.toLowerCase() : current.hiragana;
+
+      if (stage === "normal") {
+        if (input === expected) {
+          feedback.innerHTML = `✅ Corretto!<br><em>${current.hiragana} – ${current.meaning}</em>`;
+          setTimeout(nextWord, 1000);
+        } else {
+          feedback.innerText = "❌ Sbagliato!";
+          if (showHints) {
+            feedback.innerHTML += `<br><em>${current.hiragana} – ${current.meaning}</em>`;
+          }
+          stage = "correction";
+        }
+      } else if (stage === "correction") {
+        if (input === expected) {
+          repeatCount++;
+          feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x con hint`;
+          if (repeatCount >= 3) {
+            stage = "blind";
+          }
+        } else {
+          repeatCount = 0;
+          feedback.innerText = "❌ Sbagliato di nuovo. Ricominciamo!";
+        }
+      } else if (stage === "blind") {
+        if (input === expected) {
+          blindCount++;
+          feedback.innerHTML = `🔁 Corretta ${blindCount}/2 volte`;
+          if (blindCount >= 2) {
+            setTimeout(nextWord, 1000);
+          }
+        } else {
+          stage = "correction";
+          repeatCount = 0;
+          feedback.innerHTML = "❌ Torniamo agli aiuti.";
+        }
+      }
+    }
+
+    document.getElementById("userInput").addEventListener("keyup", function (e) {
+      if (e.key === "Enter") checkAnswer();
+    });
   </script>
 </body>
 </html>
