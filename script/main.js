@@ -2,7 +2,7 @@ const buttonContainer = document.getElementById("button-container");
 
 // Lista statica o fetch dinamico (se vuoi caricarli da server)
 // Puoi usare fetch se hai un server, altrimenti hardcoded così:
-const pages = ["Hiragana", "Katakana", "Grammatica"]; // basta aggiungere nuovi nomi qui
+const pages = ["Hiragana", "Katakana", "N5_section"]; // basta aggiungere nuovi nomi qui
 
 pages.forEach(page => {
     const div = document.createElement("div");
