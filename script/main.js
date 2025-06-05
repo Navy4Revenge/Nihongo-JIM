@@ -6,7 +6,6 @@ const modules = ["Hiragana", "Katakana", "N5"];
 // Etichette dei tipi + emoji per renderlo più intuitivo
 const typeLabels = {
   "Studio": "📘 Studio",
-  "Esercitazione": "🧪 Esercizio",
   "Quiz": "❓ Quiz"
 };
 
