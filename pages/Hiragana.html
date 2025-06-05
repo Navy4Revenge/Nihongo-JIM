@@ -30,10 +30,6 @@
 <body>
   <h1 id="pageTitle">Caricamento...</h1>
 
-  <div id="hintToggle" style="margin-bottom: 20px; display: none;">
-    <label><input type="checkbox" id="hintCheckbox" checked> Mostra hint (es. lettura o significato)</label>
-  </div>
-
   <div id="content">📡 Caricamento dati in corso...</div>
 
   <div id="exerciseArea" style="display: none;">
@@ -89,12 +85,10 @@
       });
 
     function startModule() {
-      const hintToggle = document.getElementById("hintToggle");
       const content = document.getElementById("content");
       const exerciseArea = document.getElementById("exerciseArea");
 
       if (type === "Studio") {
-        hintToggle.style.display = "none";
         exerciseArea.style.display = "none";
         const table = document.createElement("table");
         table.innerHTML = `
@@ -106,8 +100,7 @@
           `).join("")}</tbody>`;
         content.innerHTML = "";
         content.appendChild(table);
-      } else {
-        hintToggle.style.display = type === "Esercitazione" ? "block" : "none";
+      } else if (type === "Quiz") {
         content.innerHTML = "";
         exerciseArea.style.display = "block";
         mostraProgresso();
@@ -130,39 +123,33 @@
       const inputField = document.getElementById("userInput");
       const input = inputField.value.trim().toLowerCase();
       const expected = isKanaModule ? current.romaji.toLowerCase() : current.hiragana;
-      const isExercise = type === "Esercitazione";
-      const isQuiz = type === "Quiz";
-      const showHints = document.getElementById("hintCheckbox").checked;
       const feedback = document.getElementById("feedback");
-
       const solution = isKanaModule ? current.romaji : `${current.hiragana} – ${current.meaning}`;
+      const parolaChiave = current.kanji || current.kana;
+
       inputField.value = "";
       inputField.focus();
 
-      const parolaChiave = current.kanji || current.kana;
-
       if (stage === "normal") {
         if (input === expected) {
-          feedback.innerHTML = `✅ Corretto!${isExercise ? `<br><em>${solution}</em>` : ""}`;
-          feedback.classList.add("fade");
+          feedback.innerHTML = `✅ Corretto!`;
           correctSound.play();
           aggiornaProgresso(moduleName, parolaChiave, 1);
           setTimeout(nextWord, 1000);
         } else {
-          feedback.innerHTML = `❌ Sbagliato!${(isExercise && showHints) || isQuiz ? `<br><em>${solution}</em>` : ""}`;
-          feedback.classList.add("fade");
+          feedback.innerHTML = `❌ Sbagliato!<br><em>${solution}</em>`;
           wrongSound.play();
           stage = "correction";
         }
       } else if (stage === "correction") {
         if (input === expected) {
           repeatCount++;
-          const hint = ((isExercise && showHints) || (isQuiz && repeatCount < 3)) ? `<br><em>${solution}</em>` : "";
+          const hint = repeatCount < 3 ? `<br><em>${solution}</em>` : "";
           feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x${hint}`;
           if (repeatCount >= 3) stage = "blind";
         } else {
           repeatCount = 0;
-          feedback.innerHTML = `❌ Ancora sbagliato. Ricominciamo.${(isExercise && showHints) || (isQuiz && repeatCount < 3) ? `<br><em>${solution}</em>` : ""}`;
+          feedback.innerHTML = `❌ Ancora sbagliato. Ricominciamo.<br><em>${solution}</em>`;
           wrongSound.play();
         }
       } else if (stage === "blind") {
@@ -176,7 +163,7 @@
         } else {
           stage = "correction";
           repeatCount = 0;
-          feedback.innerHTML = `❌ Torniamo agli aiuti.`;
+          feedback.innerHTML = `❌ Torniamo agli aiuti.<br><em>${solution}</em>`;
         }
       }
     }
