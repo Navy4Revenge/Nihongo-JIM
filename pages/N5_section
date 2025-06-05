@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Modulo</title>
+  <link rel="stylesheet" href="../style/style.css">
+  <style>
+    #userInput {
+      font-size: 28px;
+      padding: 15px;
+      width: 300px;
+      text-align: center;
+    }
+    #feedback {
+      margin-top: 15px;
+      font-size: 20px;
+      transition: opacity 0.5s ease-in-out;
+    }
+    #prompt {
+      font-size: 50px;
+      margin-bottom: 20px;
+    }
+    #progressBox {
+      margin-top: 30px;
+      font-size: 18px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="pageTitle">Caricamento...</h1>
+
+  <div id="content">📡 Caricamento dati in corso...</div>
+
+  <div id="exerciseArea" style="display: none;">
+    <div id="prompt"></div>
+    <input type="text" id="userInput" placeholder="Scrivi qui...">
+    <button onclick="checkAnswer()">Verifica</button>
+    <p id="feedback"></p>
+    <div id="progressBox"></div>
+  </div>
+
+  <p id="error" style="color: red; margin-top: 20px;"></p>
+
+  <audio id="correctSound" src="../sound/correct.mp3" preload="auto"></audio>
+  <audio id="wrongSound" src="../sound/wrong.mp3" preload="auto"></audio>
+
+  <script>
+    const fileName = location.pathname.split('/').pop().split('.html')[0];
+    const moduleName = decodeURIComponent(fileName);
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type") || "Studio";
+    const sheetId = "1rAWuzob8dLBdZ9hyg287wefYT57CqOoB6CAogz-HKFA";
+    const sheetUrl = `https://opensheet.elk.sh/${sheetId}/${moduleName}`;
+    const isKanaModule = ["Hiragana", "Katakana"].includes(moduleName);
+
+    document.title = `${moduleName} – ${type}`;
+    document.getElementById("pageTitle").innerText = `${moduleName} – ${type}`;
+
+    let vocab = [];
+    let current = null;
+    let stage = "normal";
+    let repeatCount = 0;
+    let blindCount = 0;
+
+    const correctSound = document.getElementById("correctSound");
+    const wrongSound = document.getElementById("wrongSound");
+
+    fetch(sheetUrl)
+      .then(res => res.ok ? res.json() : Promise.reject("Foglio non trovato o non pubblico."))
+      .then(data => {
+        vocab = data.map(row => ({
+          kanji: row.Kanji || row.Kana || "",
+          kana: row.Kana || "",
+          hiragana: row.hiragana || "",
+          romaji: row.romaji || "",
+          meaning: row.significato || ""
+        }));
+        startModule();
+      })
+      .catch(err => {
+        console.error(err);
+        document.getElementById("error").innerText = `❌ Errore: ${err}`;
+        setTimeout(() => window.location.href = "../index.html", 3000);
+      });
+
+    function startModule() {
+      const content = document.getElementById("content");
+      const exerciseArea = document.getElementById("exerciseArea");
+
+      if (type === "Studio") {
+        exerciseArea.style.display = "none";
+        const table = document.createElement("table");
+        table.innerHTML = `
+          <thead><tr>
+            <th>Kanji / Kana</th><th>Hiragana</th><th>Romaji</th><th>Significato</th>
+          </tr></thead>
+          <tbody>${vocab.map(r => `
+            <tr><td>${r.kanji}</td><td>${r.hiragana}</td><td>${r.romaji}</td><td>${r.meaning}</td></tr>
+          `).join("")}</tbody>`;
+        content.innerHTML = "";
+        content.appendChild(table);
+      } else if (type === "Quiz") {
+        content.innerHTML = "";
+        exerciseArea.style.display = "block";
+        mostraProgresso();
+        nextWord();
+      }
+    }
+
+    function nextWord() {
+      current = vocab[Math.floor(Math.random() * vocab.length)];
+      stage = "normal";
+      repeatCount = 0;
+      blindCount = 0;
+      document.getElementById("prompt").innerHTML = current.kanji;
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("userInput").value = "";
+      document.getElementById("userInput").focus();
+    }
+
+    function checkAnswer() {
+      const inputField = document.getElementById("userInput");
+      const input = inputField.value.trim().toLowerCase();
+      const expected = isKanaModule ? current.romaji.toLowerCase() : current.hiragana;
+      const feedback = document.getElementById("feedback");
+      const solution = isKanaModule ? current.romaji : `${current.hiragana} – ${current.meaning}`;
+      const parolaChiave = current.kanji || current.kana;
+
+      inputField.value = "";
+      inputField.focus();
+
+      if (stage === "normal") {
+        if (input === expected) {
+          feedback.innerHTML = `✅ Corretto!`;
+          correctSound.play();
+          aggiornaProgresso(moduleName, parolaChiave, 1);
+          setTimeout(nextWord, 1000);
+        } else {
+          feedback.innerHTML = `❌ Sbagliato!<br><em>${solution}</em>`;
+          wrongSound.play();
+          stage = "correction";
+        }
+      } else if (stage === "correction") {
+        if (input === expected) {
+          repeatCount++;
+          const hint = repeatCount < 3 ? `<br><em>${solution}</em>` : "";
+          feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x${hint}`;
+          if (repeatCount >= 3) stage = "blind";
+        } else {
+          repeatCount = 0;
+          feedback.innerHTML = `❌ Ancora sbagliato. Ricominciamo.<br><em>${solution}</em>`;
+          wrongSound.play();
+        }
+      } else if (stage === "blind") {
+        if (input === expected) {
+          blindCount++;
+          feedback.innerHTML = `🔁 Corretta ${blindCount}/2 volte`;
+          if (blindCount >= 2) {
+            aggiornaProgresso(moduleName, parolaChiave, 1);
+            setTimeout(nextWord, 1000);
+          }
+        } else {
+          stage = "correction";
+          repeatCount = 0;
+          feedback.innerHTML = `❌ Torniamo agli aiuti.<br><em>${solution}</em>`;
+        }
+      }
+    }
+
+    function aggiornaProgresso(modulo, parola, punteggio) {
+      const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
+      if (!salvataggio[modulo]) salvataggio[modulo] = {};
+      salvataggio[modulo][parola] = punteggio;
+
+      const entries = Object.entries(salvataggio[modulo]).filter(([k]) => k !== "score");
+      const media = entries.length ? (entries.map(e => e[1]).reduce((a, b) => a + b, 0) / entries.length) : 0;
+      salvataggio[modulo].score = Math.round(media * 10 * 100) / 100;
+
+      localStorage.setItem("progresso", JSON.stringify(salvataggio));
+      mostraProgresso();
+    }
+
+    function mostraProgresso() {
+      const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
+      const score = progresso[moduleName]?.score || 0;
+      document.getElementById("progressBox").innerText = `📈 Progresso: ${score} / 10`;
+    }
+
+    document.getElementById("userInput").addEventListener("keyup", function (e) {
+      if (e.key === "Enter") checkAnswer();
+    });
+  </script>
+</body>
+</html>
