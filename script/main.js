@@ -1,7 +1,11 @@
 const buttonContainer = document.getElementById("button-container");
 
 // Moduli disponibili — aggiungi qui i nomi dei moduli HTML (senza estensione)
-const modules = ["Hiragana", "Katakana", "N5_section"];
+const modules = [
+  { label: "Hiragana", file: "Hiragana" },
+  { label: "Katakana", file: "Katakana" },
+  { label: "N5", file: "N5_section" } // ✅ Qui eviti ambiguità
+];
 
 // Etichette dei tipi + emoji per renderlo più intuitivo
 const typeLabels = {
