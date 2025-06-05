@@ -1,28 +1,30 @@
 const buttonContainer = document.getElementById("button-container");
 
-// Lista statica o fetch dinamico (se vuoi caricarli da server)
-// Puoi usare fetch se hai un server, altrimenti hardcoded così:
-const pages = ["Hiragana", "Katakana", "N5_section"]; // basta aggiungere nuovi nomi qui
+// Moduli disponibili — aggiungi qui i nomi dei moduli che hai creato
+const modules = ["Hiragana", "Katakana", "N5"];
 
-pages.forEach(page => {
-    const div = document.createElement("div");
-    div.classList.add("module-buttons");
+// Etichette dei pulsanti
+const types = ["Studio", "Esercitazione", "Quiz"];
 
-    const types = ["Studio", "Esercitazione", "Quiz"];
+modules.forEach(moduleName => {
+    // Titolo del modulo
+    const label = document.createElement("h3");
+    label.textContent = moduleName;
+    buttonContainer.appendChild(label);
+
+    // Contenitore dei pulsanti
+    const buttonRow = document.createElement("div");
+    buttonRow.classList.add("button-row");
+
     types.forEach(type => {
         const btn = document.createElement("button");
-        btn.innerText = `${type}`;
+        btn.innerText = type;
         btn.onclick = () => {
-            // Va al modulo corrispondente, es: /pages/Hiragana.html?type=Studio
-            window.location.href = `pages/${page}.html?type=${type}`;
+            // Link alla pagina HTML del modulo con tipo come parametro
+            window.location.href = `pages/${moduleName}.html?type=${type}`;
         };
-        div.appendChild(btn);
+        buttonRow.appendChild(btn);
     });
 
-    const label = document.createElement("p");
-    label.innerText = page;
-    label.classList.add("label");
-
-    buttonContainer.appendChild(label);
-    buttonContainer.appendChild(div);
+    buttonContainer.appendChild(buttonRow);
 });
