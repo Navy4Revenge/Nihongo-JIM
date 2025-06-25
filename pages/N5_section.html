@@ -25,6 +25,92 @@
       font-size: 18px;
       color: #aaa;
     }
+    
+    /* Nuovo CSS per il sistema di progresso migliorato */
+    .progress-container {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      border-radius: 12px;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+      margin-top: 20px;
+    }
+
+    .progress-header {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-details {
+      font-size: 14px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+    }
+
+    .session-stats {
+      font-size: 13px;
+      opacity: 0.8;
+      border-top: 1px solid rgba(255,255,255,0.2);
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+
+    .progress-excellent { color: #00e676; font-weight: bold; }
+    .progress-good { color: #ffeb3b; font-weight: bold; }
+    .progress-fair { color: #ff9800; font-weight: bold; }
+    .progress-low { color: #f44336; font-weight: bold; }
+
+    .progress-bar {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.3);
+      border-radius: 5px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #4caf50, #8bc34a);
+      transition: width 0.8s ease;
+      border-radius: 5px;
+    }
+
+    .stat-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    /* Animazione per feedback positivo */
+    .score-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(76, 175, 80, 0.95);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      font-size: 24px;
+      font-weight: bold;
+      z-index: 1000;
+      animation: scorePopup 2s ease-out;
+    }
+
+    @keyframes scorePopup {
+      0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); }
+      20% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+    }
   </style>
 </head>
 <body>
@@ -62,6 +148,15 @@
     let stage = "normal";
     let repeatCount = 0;
     let blindCount = 0;
+
+    // Nuove variabili per il sistema di scoring migliorato
+    let sessionStats = {
+        totalAttempts: 0,
+        correctFirst: 0,
+        correctAfterHelp: 0,
+        totalErrors: 0,
+        sessionStartTime: new Date()
+    };
 
     const correctSound = document.getElementById("correctSound");
     const wrongSound = document.getElementById("wrongSound");
@@ -103,13 +198,14 @@
       } else if (type === "Quiz") {
         content.innerHTML = "";
         exerciseArea.style.display = "block";
-        mostraProgresso();
+        mostraProgressoDettagliato();
         nextWord();
       }
     }
 
     function nextWord() {
       current = vocab[Math.floor(Math.random() * vocab.length)];
+      current.attempts = 0; // Reset contatore tentativi per la nuova parola
       stage = "normal";
       repeatCount = 0;
       blindCount = 0;
@@ -117,6 +213,143 @@
       document.getElementById("feedback").innerText = "";
       document.getElementById("userInput").value = "";
       document.getElementById("userInput").focus();
+    }
+
+    // Sistema di scoring migliorato
+    function calculateScore(attempts, wasFirstTryCorrect) {
+      if (wasFirstTryCorrect && attempts === 1) {
+        return 10; // Perfetto al primo tentativo
+      } else if (attempts === 2) {
+        return 8; // Corretto al secondo tentativo
+      } else if (attempts === 3) {
+        return 6; // Corretto al terzo tentativo
+      } else if (attempts <= 5) {
+        return 4; // 4-5 tentativi
+      } else {
+        return 2; // Più di 5 tentativi
+      }
+    }
+
+    function updateWordProgress(modulo, parola, attempts, wasFirstTryCorrect) {
+      const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
+      if (!salvataggio[modulo]) salvataggio[modulo] = {};
+      if (!salvataggio[modulo].words) salvataggio[modulo].words = {};
+      
+      const newScore = calculateScore(attempts, wasFirstTryCorrect);
+      const currentWordData = salvataggio[modulo].words[parola] || {};
+      const bestScore = Math.max(currentWordData.score || 0, newScore);
+      
+      salvataggio[modulo].words[parola] = {
+        score: bestScore,
+        lastAttempts: attempts,
+        bestAttempts: currentWordData.bestAttempts 
+          ? Math.min(currentWordData.bestAttempts, attempts)
+          : attempts,
+        timesPlayed: (currentWordData.timesPlayed || 0) + 1,
+        lastPlayed: new Date().toISOString(),
+        lastScore: newScore
+      };
+      
+      // Calcola statistiche del modulo
+      const wordEntries = Object.values(salvataggio[modulo].words);
+      const totalScore = wordEntries.reduce((sum, word) => sum + word.score, 0);
+      const averageScore = wordEntries.length ? totalScore / wordEntries.length : 0;
+      
+      salvataggio[modulo].moduleStats = {
+        averageScore: Math.round(averageScore * 100) / 100,
+        totalWords: wordEntries.length,
+        masteredWords: wordEntries.filter(w => w.score >= 8).length,
+        goodWords: wordEntries.filter(w => w.score >= 6 && w.score < 8).length,
+        needsPractice: wordEntries.filter(w => w.score < 6).length,
+        totalAttempts: wordEntries.reduce((sum, w) => sum + w.timesPlayed, 0),
+        lastUpdated: new Date().toISOString()
+      };
+      
+      localStorage.setItem("progresso", JSON.stringify(salvataggio));
+      mostraProgressoDettagliato();
+      
+      return newScore;
+    }
+
+    function mostraProgressoDettagliato() {
+      const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
+      const moduleData = progresso[moduleName];
+      
+      if (!moduleData || !moduleData.moduleStats) {
+        document.getElementById("progressBox").innerHTML = `
+          <div class="progress-container">
+            <div class="progress-header">📈 Inizia a studiare per vedere i tuoi progressi!</div>
+          </div>
+        `;
+        return;
+      }
+      
+      const stats = moduleData.moduleStats;
+      const progressPercentage = (stats.averageScore / 10 * 100);
+      
+      let colorClass = 'progress-low';
+      let statusText = 'Principiante';
+      if (stats.averageScore >= 8) {
+        colorClass = 'progress-excellent';
+        statusText = 'Eccellente';
+      } else if (stats.averageScore >= 6) {
+        colorClass = 'progress-good';
+        statusText = 'Buono';
+      } else if (stats.averageScore >= 4) {
+        colorClass = 'progress-fair';
+        statusText = 'Discreto';
+      }
+
+      const sessionTime = Math.round((new Date() - sessionStats.sessionStartTime) / 60000);
+      const accuracy = sessionStats.totalAttempts > 0 
+        ? Math.round((sessionStats.correctFirst / sessionStats.totalAttempts) * 100) 
+        : 0;
+      
+      document.getElementById("progressBox").innerHTML = `
+        <div class="progress-container">
+          <div class="progress-header">
+            📈 Progresso: <span class="${colorClass}">${stats.averageScore.toFixed(1)}/10</span> 
+            <span style="font-size: 14px; opacity: 0.8;">(${statusText})</span>
+          </div>
+          
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: ${progressPercentage}%"></div>
+          </div>
+          
+          <div class="progress-details">
+            <div class="stat-item">🎯 <strong>${stats.totalWords}</strong> parole studiate</div>
+            <div class="stat-item">✅ <strong>${stats.masteredWords}</strong> padroneggiate</div>
+            <div class="stat-item">👍 <strong>${stats.goodWords}</strong> buone</div>
+            <div class="stat-item">⚠️ <strong>${stats.needsPractice}</strong> da ripassare</div>
+          </div>
+          
+          <div class="session-stats">
+            📊 <strong>Sessione attuale:</strong> 
+            ${sessionStats.correctFirst}/${sessionStats.totalAttempts} corrette al primo tentativo (${accuracy}%) • 
+            ⏱️ ${sessionTime} min • 
+            ❌ ${sessionStats.totalErrors} errori
+          </div>
+        </div>
+      `;
+    }
+
+    function showScorePopup(score, isFirstTry) {
+      const popup = document.createElement('div');
+      popup.className = 'score-popup';
+      
+      let message = '';
+      if (isFirstTry) {
+        message = `🌟 PERFETTO! +${score} punti`;
+      } else {
+        message = `✅ Completato! +${score} punti`;
+      }
+      
+      popup.innerHTML = message;
+      document.body.appendChild(popup);
+      
+      setTimeout(() => {
+        document.body.removeChild(popup);
+      }, 2000);
     }
 
     function checkAnswer() {
@@ -130,61 +363,61 @@
       inputField.value = "";
       inputField.focus();
 
+      current.attempts++;
+
       if (stage === "normal") {
         if (input === expected) {
-          feedback.innerHTML = `✅ Corretto!`;
+          feedback.innerHTML = `✅ <strong>Perfetto al primo tentativo!</strong>`;
           correctSound.play();
-          aggiornaProgresso(moduleName, parolaChiave, 1);
-          setTimeout(nextWord, 1000);
+          
+          sessionStats.totalAttempts++;
+          sessionStats.correctFirst++;
+          
+          const score = updateWordProgress(moduleName, parolaChiave, 1, true);
+          showScorePopup(score, true);
+          
+          setTimeout(nextWord, 1500);
         } else {
           feedback.innerHTML = `❌ Sbagliato!<br><em>${solution}</em>`;
           wrongSound.play();
+          sessionStats.totalErrors++;
           stage = "correction";
         }
       } else if (stage === "correction") {
         if (input === expected) {
           repeatCount++;
           const hint = repeatCount < 3 ? `<br><em>${solution}</em>` : "";
-          feedback.innerHTML = `✍️ Ripeti ${3 - repeatCount}x${hint}`;
+          feedback.innerHTML = `✍️ Bene! Ripeti ancora <strong>${3 - repeatCount}</strong> volte${hint}`;
           if (repeatCount >= 3) stage = "blind";
         } else {
           repeatCount = 0;
+          sessionStats.totalErrors++;
           feedback.innerHTML = `❌ Ancora sbagliato. Ricominciamo.<br><em>${solution}</em>`;
           wrongSound.play();
         }
       } else if (stage === "blind") {
         if (input === expected) {
           blindCount++;
-          feedback.innerHTML = `🔁 Corretta ${blindCount}/2 volte`;
+          feedback.innerHTML = `🔁 Ottimo! <strong>${blindCount}/2</strong> corrette consecutive`;
           if (blindCount >= 2) {
-            aggiornaProgresso(moduleName, parolaChiave, 1);
-            setTimeout(nextWord, 1000);
+            sessionStats.totalAttempts++;
+            sessionStats.correctAfterHelp++;
+            
+            const finalScore = updateWordProgress(moduleName, parolaChiave, current.attempts, false);
+            feedback.innerHTML = `🏆 <strong>Parola completata!</strong>`;
+            showScorePopup(finalScore, false);
+            
+            setTimeout(nextWord, 1500);
           }
         } else {
           stage = "correction";
           repeatCount = 0;
+          blindCount = 0;
+          sessionStats.totalErrors++;
           feedback.innerHTML = `❌ Torniamo agli aiuti.<br><em>${solution}</em>`;
+          wrongSound.play();
         }
       }
-    }
-
-    function aggiornaProgresso(modulo, parola, punteggio) {
-      const salvataggio = JSON.parse(localStorage.getItem("progresso")) || {};
-      if (!salvataggio[modulo]) salvataggio[modulo] = {};
-      salvataggio[modulo][parola] = punteggio;
-
-      const entries = Object.entries(salvataggio[modulo]).filter(([k]) => k !== "score");
-      const media = entries.length ? (entries.map(e => e[1]).reduce((a, b) => a + b, 0) / entries.length) : 0;
-      salvataggio[modulo].score = Math.round(media * 10 * 100) / 100;
-
-      localStorage.setItem("progresso", JSON.stringify(salvataggio));
-      mostraProgresso();
-    }
-
-    function mostraProgresso() {
-      const progresso = JSON.parse(localStorage.getItem("progresso")) || {};
-      const score = progresso[moduleName]?.score || 0;
-      document.getElementById("progressBox").innerText = `📈 Progresso: ${score} / 10`;
     }
 
     document.getElementById("userInput").addEventListener("keyup", function (e) {
